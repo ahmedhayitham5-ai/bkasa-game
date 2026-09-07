@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BKASA — بكاسه</title>
+  <script src="/socket.io/socket.io.js"></script>
+  <style>
+    body { font-family: system-ui, sans-serif; background: #0b0e14; color: white; text-align: center; margin: 0; padding: 20px; }
+    .card { background: #121824; border-radius: 12px; padding: 20px; max-width: 400px; margin: auto; border: 1px solid #1f293d; }
+    input, button { width: 100%; padding: 12px; margin: 8px 0; border-radius: 8px; border: none; box-sizing: border-box; }
+    input { background: #1a2332; color: white; }
+    button { background: #10b981; color: white; font-weight: bold; cursor: pointer; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; margin-top: 20px; }
+    video { width: 100%; height: 120px; background: black; border-radius: 8px; object-fit: cover; }
+    .hidden { display: none; }
+    .word-box { background: #8b5cf6; padding: 15px; border-radius: 8px; font-size: 1.2rem; font-weight: bold; margin: 15px 0; }
+  </style>
+</head>
+<body>
+
+  <div id="login" class="card">
+    <h2>BKASA — بكاسه 🎭</h2>
+    <input id="username" placeholder="اسمك">
+    <input id="roomId" placeholder="رمز الغرفة (مثال: 123)">
+    <button onclick="join()">ادخل اللعبة</button>
+  </div>
+
+  <div id="game" class="card hidden">
+    <h3 id="roomTitle"></h3>
+    <div id="wordBox" class="word-box hidden"></div>
+    <button id="startBtn" class="hidden" onclick="startGame()">ابدأ اللعبة</button>
+
+    <h4>اللاعبون والكاميرات 🎥</h4>
+    <div id="videoGrid" class="grid">
+      <div><video id="myVideo" autoplay playsinline muted></video><p>أنت</p></div>
+    </div>
+  </div>
+
+  <script>
+    const socket = io();
+    let myStream, currentRoom;
+
+    async function initCamera() {
+      try {
+        myStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+        document.getElementById('myVideo').srcObject = myStream;
+      } catch (e) { console.error("Camera access denied", e); }
+    }
+
+    function join() {
+      const username = document.getElementById('username').value || "لاعب";
+      currentRoom = document.getElementById('roomId').value || "123";
+
+      initCamera();
+      socket.emit('joinRoom', { roomId: currentRoom, username, avatar: '😎' });
+
+      document.getElementById('login').classList.add('hidden');
+      document.getElementById('game').classList.remove('hidden');
+      document.getElementById('roomTitle').innerText = `الغرفة: ${currentRoom}`;
+    }
+
+    function startGame() {
+      socket.emit('startGame', currentRoom);
+    }
+
+    socket.on('roomUpdated', (room) => {
+      const isHost = room.players.find(p => p.id === socket.id)?.isHost;
+      if (isHost && room.state === 'lobby') {
+        document.getElementById('startBtn').classList.remove('hidden');
+      }
+    });
+
+    socket.on('gameStarted', ({ word }) => {
+      const box = document.getElementById('wordBox');
+      box.innerText = word;
+      box.classList.remove('hidden');
+      document.getElementById('startBtn').classList.add('hidden');
+    });
+  </script>
+</body>
+</html>
